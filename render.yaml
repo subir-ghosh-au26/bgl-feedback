@@ -14,9 +14,7 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
-      - key: TURSO_DATABASE_URL
-        sync: false
-      - key: TURSO_AUTH_TOKEN
+      - key: MONGODB_URI
         sync: false
       - key: BASE_URL
         sync: false

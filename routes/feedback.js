@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { getDB } = require('../utils/db');
+const { getFeedbackModel } = require('../utils/db');
 const { requireAdmin } = require('../middleware/auth');
 
 // ── Helpers ────────────────────────────────────
@@ -45,10 +45,9 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Invalid email format.' });
         }
 
-        const db = getDB();
-        await db.execute({
-            sql: `INSERT INTO feedback (name, email, phone, category, organisation, rating, message) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            args: [name, email, phone, category, organisation, rating, message]
+        const Feedback = getFeedbackModel();
+        await Feedback.create({
+            name, email, phone, category, organisation, rating, message
         });
 
         res.json({ success: true, message: 'Thank you for your feedback!' });
@@ -63,11 +62,17 @@ router.post('/', async (req, res) => {
 // ──────────────────────────────────────────────
 router.get('/', requireAdmin, async (req, res) => {
     try {
-        const db = getDB();
-        const result = await db.execute('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
+        const Feedback = getFeedbackModel();
+        const results = await Feedback.find().sort({ created_at: -1 });
 
-        // Turso returns rows as an array of objects
-        res.json(result.rows);
+        // Map to plain objects for response consistency (Mongoose returns documents)
+        const rows = results.map(doc => {
+            const obj = doc.toObject();
+            obj.id = obj._id; // Map _id to id for frontend compatibility if needed
+            return obj;
+        });
+
+        res.json(rows);
     } catch (err) {
         console.error('Error fetching feedback:', err);
         res.status(500).json({ error: 'Failed to retrieve feedback.' });
@@ -79,24 +84,28 @@ router.get('/', requireAdmin, async (req, res) => {
 // ──────────────────────────────────────────────
 router.get('/stats', requireAdmin, async (req, res) => {
     try {
-        const db = getDB();
+        const Feedback = getFeedbackModel();
 
-        const totalResult = await db.execute('SELECT COUNT(*) as total FROM feedback');
-        const total = totalResult.rows[0].total;
+        // 1. Total entries
+        const total = await Feedback.countDocuments();
 
-        const avgResult = await db.execute('SELECT AVG(rating) as avg_rating FROM feedback');
-        const avgRaw = avgResult.rows[0].avg_rating;
-        const avgRating = avgRaw !== null ? parseFloat(avgRaw).toFixed(1) : '0.0';
+        // 2. Average rating
+        const avgResult = await Feedback.aggregate([
+            { $group: { _id: null, avgRating: { $avg: '$rating' } } }
+        ]);
+        const avgRating = avgResult.length > 0 ? avgResult[0].avgRating.toFixed(1) : '0.0';
 
-        const todayResult = await db.execute(
-            `SELECT COUNT(*) as today FROM feedback WHERE date(created_at) = date('now', 'localtime')`
-        );
-        const today = todayResult.rows[0].today;
+        // 3. Today's entries
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const today = await Feedback.countDocuments({ created_at: { $gte: todayStart } });
 
-        const ratingResult = await db.execute(
-            `SELECT rating, COUNT(*) as count FROM feedback GROUP BY rating ORDER BY rating`
-        );
-        const ratings = ratingResult.rows.map(row => ({ rating: row.rating, count: row.count }));
+        // 4. Rating distribution
+        const ratingDist = await Feedback.aggregate([
+            { $group: { _id: '$rating', count: { $sum: 1 } } },
+            { $sort: { _id: 1 } }
+        ]);
+        const ratings = ratingDist.map(r => ({ rating: r._id, count: r.count }));
 
         res.json({ total, avgRating, today, ratings });
     } catch (err) {
@@ -110,8 +119,8 @@ router.get('/stats', requireAdmin, async (req, res) => {
 // ──────────────────────────────────────────────
 router.get('/export/excel', requireAdmin, async (req, res) => {
     try {
-        const db = getDB();
-        const result = await db.execute('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
+        const Feedback = getFeedbackModel();
+        const results = await Feedback.find().sort({ created_at: -1 });
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'BGL Feedback System';
@@ -121,9 +130,8 @@ router.get('/export/excel', requireAdmin, async (req, res) => {
             properties: { tabColor: { argb: '6C63FF' } }
         });
 
-        // Define columns
         sheet.columns = [
-            { header: 'ID', key: 'id', width: 8 },
+            { header: 'ID', key: '_id', width: 25 },
             { header: 'Name', key: 'name', width: 25 },
             { header: 'Email', key: 'email', width: 30 },
             { header: 'Phone', key: 'phone', width: 18 },
@@ -134,29 +142,20 @@ router.get('/export/excel', requireAdmin, async (req, res) => {
             { header: 'Date', key: 'created_at', width: 22 }
         ];
 
-        // Style header row
         const headerRow = sheet.getRow(1);
         headerRow.font = { bold: true, color: { argb: 'FFFFFF' }, size: 12 };
-        headerRow.fill = {
-            type: 'pattern', pattern: 'solid',
-            fgColor: { argb: '6C63FF' }
-        };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '6C63FF' } };
         headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
         headerRow.height = 30;
 
-        // Add data rows
-        result.rows.forEach((row, idx) => {
-            const dataRow = sheet.addRow(row);
+        results.forEach((doc, idx) => {
+            const dataRow = sheet.addRow(doc.toObject());
             dataRow.alignment = { vertical: 'middle', wrapText: true };
             if (idx % 2 === 0) {
-                dataRow.fill = {
-                    type: 'pattern', pattern: 'solid',
-                    fgColor: { argb: 'F5F5FF' }
-                };
+                dataRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F5F5FF' } };
             }
         });
 
-        // Add borders
         sheet.eachRow((row) => {
             row.eachCell((cell) => {
                 cell.border = {
@@ -170,7 +169,6 @@ router.get('/export/excel', requireAdmin, async (req, res) => {
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=feedback_${Date.now()}.xlsx`);
-
         await workbook.xlsx.write(res);
         res.end();
     } catch (err) {
@@ -184,36 +182,30 @@ router.get('/export/excel', requireAdmin, async (req, res) => {
 // ──────────────────────────────────────────────
 router.get('/export/pdf', requireAdmin, async (req, res) => {
     try {
-        const db = getDB();
-        const result = await db.execute('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
+        const Feedback = getFeedbackModel();
+        const results = await Feedback.find().sort({ created_at: -1 });
 
         const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
-
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=feedback_${Date.now()}.pdf`);
         doc.pipe(res);
 
-        // Title
         doc.fontSize(22).fillColor('#6C63FF').text('BGL Feedback Report', { align: 'center' });
         doc.moveDown(0.3);
         doc.fontSize(10).fillColor('#888').text(`Generated on: ${new Date().toLocaleString()}`, { align: 'center' });
         doc.moveDown(1);
 
-        if (result.rows.length === 0) {
+        if (results.length === 0) {
             doc.fontSize(14).fillColor('#333').text('No feedback entries found.', { align: 'center' });
             doc.end();
             return;
         }
 
-        const rows = result.rows;
-
-        // Table configuration
-        const colWidths = [30, 75, 100, 70, 70, 90, 35, 180, 85];
+        const colWidths = [120, 75, 100, 70, 70, 90, 35, 180, 85];
         const headers = ['ID', 'Name', 'Email', 'Phone', 'Category', 'Organisation', 'Rating', 'Message', 'Date'];
         const startX = 40;
         let y = doc.y;
 
-        // Draw header row
         const drawHeader = (yPos) => {
             doc.fontSize(9).fillColor('#FFFFFF');
             let x = startX;
@@ -227,9 +219,8 @@ router.get('/export/pdf', requireAdmin, async (req, res) => {
         drawHeader(y);
         y += 25;
 
-        // Draw data rows
         doc.fontSize(8).fillColor('#333');
-        rows.forEach((rowObj, rowIdx) => {
+        results.forEach((docObj, rowIdx) => {
             if (y > doc.page.height - 60) {
                 doc.addPage();
                 y = 40;
@@ -241,11 +232,11 @@ router.get('/export/pdf', requireAdmin, async (req, res) => {
             const bgColor = rowIdx % 2 === 0 ? '#F8F8FF' : '#FFFFFF';
             let x = startX;
 
-            // Map object to array to match headers
             const rowValues = [
-                rowObj.id, rowObj.name, rowObj.email, rowObj.phone,
-                rowObj.category, rowObj.organisation, rowObj.rating,
-                rowObj.message, rowObj.created_at
+                docObj._id.toString().substring(0, 15) + '...',
+                docObj.name, docObj.email, docObj.phone,
+                docObj.category, docObj.organisation, docObj.rating,
+                docObj.message, docObj.created_at.toLocaleString()
             ];
 
             rowValues.forEach((cell, i) => {
@@ -260,13 +251,8 @@ router.get('/export/pdf', requireAdmin, async (req, res) => {
             y += 22;
         });
 
-        // Footer
         doc.moveDown(2);
-        doc.fontSize(9).fillColor('#aaa').text(
-            `Total entries: ${rows.length}`,
-            40, doc.page.height - 40,
-            { align: 'center', width: doc.page.width - 80 }
-        );
+        doc.fontSize(9).fillColor('#aaa').text(`Total entries: ${results.length}`, 40, doc.page.height - 40, { align: 'center', width: doc.page.width - 80 });
 
         doc.end();
     } catch (err) {

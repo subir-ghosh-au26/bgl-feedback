@@ -1,55 +1,47 @@
-const { createClient } = require('@libsql/client');
-
-let db = null;
+const mongoose = require('mongoose');
 
 /**
- * Initialize the Turso (libSQL) database connection.
- * Uses environment variables for URL and Auth Token.
+ * Feedback Schema for MongoDB
+ */
+const feedbackSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    email: { type: String, default: '' },
+    phone: { type: String, default: '' },
+    category: { type: String, required: true },
+    organisation: { type: String, required: true },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    message: { type: String, required: true },
+    created_at: { type: Date, default: Date.now }
+});
+
+const Feedback = mongoose.model('Feedback', feedbackSchema);
+
+/**
+ * Initialize MongoDB connection using Mongoose.
  */
 async function initDB() {
-    const url = process.env.TURSO_DATABASE_URL;
-    const authToken = process.env.TURSO_AUTH_TOKEN;
+    const uri = process.env.MONGODB_URI;
 
-    if (!url) {
-        console.warn('⚠️ TURSO_DATABASE_URL is not set. Falling back to local SQLite file for development.');
+    if (!uri) {
+        console.warn('⚠️ MONGODB_URI is not set. Application might fail if no default local mongo is available.');
     }
 
-    // Connect to Turso (or local file if URL is missing)
-    db = createClient({
-        url: url || 'file:data/feedback.db',
-        authToken: authToken
-    });
-
-    // Create feedback table if it doesn't exist
-    await db.execute(`
-        CREATE TABLE IF NOT EXISTS feedback (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT DEFAULT '',
-            phone TEXT DEFAULT '',
-            category TEXT DEFAULT '',
-            organisation TEXT DEFAULT '',
-            rating INTEGER NOT NULL,
-            message TEXT NOT NULL,
-            created_at DATETIME DEFAULT (datetime('now', 'localtime'))
-        )
-    `);
-
-    console.log('✅ Database connection initialized');
-    return db;
-}
-
-/** Get the current database instance */
-function getDB() {
-    if (!db) {
-        throw new Error('Database not initialized. Call initDB() first.');
+    try {
+        await mongoose.connect(uri || 'mongodb://localhost:27017/bgl-feedback');
+        console.log('✅ MongoDB connected successfully');
+    } catch (err) {
+        console.error('❌ MongoDB connection error:', err);
+        throw err;
     }
-    return db;
 }
 
-// saveDB is no longer needed as Turso auto-persists changes to the cloud
-function saveDB() {
-    // No-op for cloud database
+/** Get the Feedback model */
+function getFeedbackModel() {
+    return Feedback;
 }
 
-module.exports = { initDB, getDB, saveDB };
+// No-ops for compatibility with existing route structure if needed
+function getDB() { return null; }
+function saveDB() { }
+
+module.exports = { initDB, getFeedbackModel, getDB, saveDB };
