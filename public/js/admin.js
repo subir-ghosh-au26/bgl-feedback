@@ -153,7 +153,8 @@ async function showQRModal() {
         const res = await fetch('/api/admin/qrcode');
         const data = await res.json();
 
-        document.getElementById('qrImage').src = data.qrCode;
+        // Inject raw SVG into container to bypass data-uri image security restrictions
+        document.getElementById('qrImageContainer').innerHTML = data.qrCode;
         document.getElementById('qrModal').classList.add('active');
     } catch (err) {
         showAdminToast('Failed to load QR code', 'error');
@@ -164,13 +165,35 @@ function closeQRModal() {
     document.getElementById('qrModal').classList.remove('active');
 }
 
-function downloadQR() {
-    const img = document.getElementById('qrImage');
-    const link = document.createElement('a');
-    link.download = 'bgl-feedback-qr.png';
-    link.href = img.src;
-    link.click();
-    showAdminToast('QR Code downloaded!', 'success');
+async function downloadQR() {
+    const container = document.getElementById('qrImageContainer');
+    const svgElement = container.querySelector('svg');
+    if (!svgElement) return;
+
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    // Set canvas dimensions based on SVG viewBox or width/height
+    canvas.width = 1000;  // High resolution download
+    canvas.height = 1000;
+
+    img.onload = () => {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const pngUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = 'bgl-feedback-qr.png';
+        link.href = pngUrl;
+        link.click();
+        showAdminToast('QR Code downloaded!', 'success');
+    };
+
+    // Convert SVG string to data URL for the Image object
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
 }
 
 // Close modal on overlay click

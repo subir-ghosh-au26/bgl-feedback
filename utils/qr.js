@@ -144,8 +144,7 @@ async function generateQR(url) {
   try {
     const qr = QRCode.create(url, { errorCorrectionLevel: 'H' });
     const svg = buildSVG(qr.modules, 12, 48);
-    const base64 = Buffer.from(svg).toString('base64');
-    return `data:image/svg+xml;base64,${base64}`;
+    return svg;
   } catch (err) {
     console.error('QR Code generation failed:', err);
     throw err;
