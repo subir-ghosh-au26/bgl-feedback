@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Share Your Feedback | BGL</title>
+    <meta name="description"
+        content="We value your feedback. Share your experience with us and help us improve our services.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- Animated background particles -->
+    <div class="bg-particles" id="particles"></div>
+
+    <div class="container">
+        <!-- Feedback Form Card -->
+        <div class="card" id="formCard">
+            <div class="card-header">
+                <div class="logo-icon">
+                    <img src="images/logo.jpg" alt="Bihar GenNext LAB">
+                </div>
+                <h1>We'd Love Your Feedback</h1>
+                <p class="subtitle">Your thoughts help us improve. It only takes a minute!</p>
+            </div>
+
+            <form id="feedbackForm" autocomplete="off">
+                <!-- Name -->
+                <div class="form-group">
+                    <label for="name">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="field-icon">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                        </svg>
+                        Your Name
+                    </label>
+                    <input type="text" id="name" name="name" placeholder="Enter your full name">
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="email">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="field-icon">
+                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                            <polyline points="22,6 12,13 2,6" />
+                        </svg>
+                        Email <span class="required">*</span>
+                    </label>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" required>
+                </div>
+
+                <!-- Phone -->
+                <div class="form-group">
+                    <label for="phone">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="field-icon">
+                            <path
+                                d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+                        </svg>
+                        Phone <span class="optional">(optional)</span>
+                    </label>
+                    <input type="tel" id="phone" name="phone" placeholder="+91 98765 43210">
+                </div>
+
+                <!-- Category -->
+                <div class="form-group">
+                    <label for="category">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="field-icon">
+                            <rect x="3" y="3" width="7" height="7" />
+                            <rect x="14" y="3" width="7" height="7" />
+                            <rect x="3" y="14" width="7" height="7" />
+                            <rect x="14" y="14" width="7" height="7" />
+                        </svg>
+                        Category <span class="required">*</span>
+                    </label>
+                    <select id="category" name="category" required>
+                        <option value="" disabled selected>Select category</option>
+                        <option value="Government">🏛️ Government</option>
+                        <option value="Non-Government">🏢 Non-Government</option>
+                    </select>
+                </div>
+
+                <!-- Organisation -->
+                <div class="form-group">
+                    <label for="organisation">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="field-icon">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                        Organisation <span class="required">*</span>
+                    </label>
+                    <input type="text" id="organisation" name="organisation" placeholder="Enter organisation name"
+                        required>
+                </div>
+
+                <!-- Star Rating -->
+                <div class="form-group">
+                    <label>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="field-icon">
+                            <polygon
+                                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                        </svg>
+                        Rate Your Experience <span class="required">*</span>
+                    </label>
+                    <div class="star-rating" id="starRating">
+                        <div class="star" data-value="1">
+                            <svg viewBox="0 0 24 24">
+                                <polygon
+                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                            <span class="star-label">Poor</span>
+                        </div>
+                        <div class="star" data-value="2">
+                            <svg viewBox="0 0 24 24">
+                                <polygon
+                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                            <span class="star-label">Fair</span>
+                        </div>
+                        <div class="star" data-value="3">
+                            <svg viewBox="0 0 24 24">
+                                <polygon
+                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                            <span class="star-label">Good</span>
+                        </div>
+                        <div class="star" data-value="4">
+                            <svg viewBox="0 0 24 24">
+                                <polygon
+                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                            <span class="star-label">Great</span>
+                        </div>
+                        <div class="star" data-value="5">
+                            <svg viewBox="0 0 24 24">
+                                <polygon
+                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                            <span class="star-label">Excellent</span>
+                        </div>
+                    </div>
+                    <input type="hidden" id="rating" name="rating" value="" required>
+                </div>
+
+
+                <!-- Message -->
+                <div class="form-group">
+                    <label for="message">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="field-icon">
+                            <line x1="17" y1="10" x2="3" y2="10" />
+                            <line x1="21" y1="6" x2="3" y2="6" />
+                            <line x1="21" y1="14" x2="3" y2="14" />
+                            <line x1="17" y1="18" x2="3" y2="18" />
+                        </svg>
+                        Experience about BGL <span class="required">*</span>
+                    </label>
+                    <textarea id="message" name="message" rows="4" placeholder="Tell us about your experience..."
+                        required></textarea>
+                    <div class="char-count"><span id="charCount">0</span> / 500</div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    <span class="btn-text">Submit Feedback</span>
+                    <span class="btn-loader">
+                        <svg class="spinner" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"
+                                stroke-dasharray="31.4 31.4" stroke-linecap="round" />
+                        </svg>
+                    </span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Success Card -->
+        <div class="card success-card hidden" id="successCard">
+            <div class="success-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+            </div>
+            <h2>Thank You! 🎉</h2>
+            <p>Your feedback has been submitted successfully. We truly appreciate your time and input.</p>
+            <button class="submit-btn" id="submitAnotherBtn">Submit Another</button>
+        </div>
+    </div>
+
+    <script src="js/feedback.js"></script>
+</body>
+
+</html>
