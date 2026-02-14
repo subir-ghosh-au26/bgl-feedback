@@ -14,7 +14,7 @@ const feedbackSchema = new mongoose.Schema({
     created_at: { type: Date, default: Date.now }
 });
 
-const Feedback = mongoose.model('Feedback', feedbackSchema);
+const Feedback = mongoose.model('Feedback', feedbackSchema, 'feedback');
 
 /**
  * Initialize MongoDB connection using Mongoose.

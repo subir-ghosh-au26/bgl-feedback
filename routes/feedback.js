@@ -68,7 +68,7 @@ router.get('/', requireAdmin, async (req, res) => {
         // Map to plain objects for response consistency (Mongoose returns documents)
         const rows = results.map(doc => {
             const obj = doc.toObject();
-            obj.id = obj._id; // Map _id to id for frontend compatibility if needed
+            obj.id = obj._id.toString(); // Map _id to id for frontend compatibility
             return obj;
         });
 

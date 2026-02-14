@@ -105,8 +105,15 @@ function buildSVG(modules, cellSize, margin) {
   }
 
   // ── Logo in center ────────────────────────────
-  const logoRaw = fs.readFileSync(LOGO_PATH);
-  const logoB64 = logoRaw.toString('base64');
+  let logoB64 = null;
+  try {
+    if (fs.existsSync(LOGO_PATH)) {
+      logoB64 = fs.readFileSync(LOGO_PATH).toString('base64');
+    }
+  } catch (err) {
+    console.warn('⚠️ Logo logo.jpg could not be loaded for QR:', err.message);
+  }
+
   const logoSize = qrPx * 0.24;
   const pad = 6;
   const cx = size / 2;
@@ -123,11 +130,13 @@ function buildSVG(modules, cellSize, margin) {
   // Finder eyes
   svg += eyePaths.join('');
 
-  // Logo white circle bg
-  svg += `<circle cx="${cx}" cy="${cy}" r="${logoSize / 2 + pad}" fill="${BG_COLOR}"/>`;
-  // Clip to circle
-  svg += `<defs><clipPath id="lc"><circle cx="${cx}" cy="${cy}" r="${logoSize / 2}"/></clipPath></defs>`;
-  svg += `<image href="data:image/jpeg;base64,${logoB64}" x="${cx - logoSize / 2}" y="${cy - logoSize / 2}" width="${logoSize}" height="${logoSize}" clip-path="url(#lc)" preserveAspectRatio="xMidYMid slice"/>`;
+  if (logoB64) {
+    // Logo white circle bg
+    svg += `<circle cx="${cx}" cy="${cy}" r="${logoSize / 2 + pad}" fill="${BG_COLOR}"/>`;
+    // Clip to circle
+    svg += `<defs><clipPath id="lc"><circle cx="${cx}" cy="${cy}" r="${logoSize / 2}"/></clipPath></defs>`;
+    svg += `<image href="data:image/jpeg;base64,${logoB64}" x="${cx - logoSize / 2}" y="${cy - logoSize / 2}" width="${logoSize}" height="${logoSize}" clip-path="url(#lc)" preserveAspectRatio="xMidYMid slice"/>`;
+  }
 
   svg += '</svg>';
   return svg;
