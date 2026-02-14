@@ -108,9 +108,8 @@ app.use((err, req, res, next) => {
     // ── Graceful Shutdown ───────────────────────────
     const shutdown = (signal) => {
         console.log(`\n⏹ ${signal} received. Shutting down gracefully...`);
-        saveDB();
         server.close(() => {
-            console.log('✅ Server closed. Database saved.');
+            console.log('✅ Server closed.');
             process.exit(0);
         });
         // Force close after 5s

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { getDB, saveDB } = require('../utils/db');
+const { getDB } = require('../utils/db');
 const { requireAdmin } = require('../middleware/auth');
 
 // ── Helpers ────────────────────────────────────
@@ -24,7 +24,7 @@ function isValidEmail(email) {
 // ──────────────────────────────────────────────
 // POST /api/feedback  — Submit new feedback (public)
 // ──────────────────────────────────────────────
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     try {
         const name = sanitize(req.body.name, 100);
         const email = sanitize(req.body.email, 200);
@@ -46,11 +46,10 @@ router.post('/', (req, res) => {
         }
 
         const db = getDB();
-        db.run(
-            `INSERT INTO feedback (name, email, phone, category, organisation, rating, message) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [name, email, phone, category, organisation, rating, message]
-        );
-        saveDB();
+        await db.execute({
+            sql: `INSERT INTO feedback (name, email, phone, category, organisation, rating, message) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            args: [name, email, phone, category, organisation, rating, message]
+        });
 
         res.json({ success: true, message: 'Thank you for your feedback!' });
     } catch (err) {
@@ -62,23 +61,13 @@ router.post('/', (req, res) => {
 // ──────────────────────────────────────────────
 // GET /api/feedback  — List all feedback (admin only)
 // ──────────────────────────────────────────────
-router.get('/', requireAdmin, (req, res) => {
+router.get('/', requireAdmin, async (req, res) => {
     try {
         const db = getDB();
-        const results = db.exec('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
+        const result = await db.execute('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
 
-        if (results.length === 0) {
-            return res.json([]);
-        }
-
-        const columns = results[0].columns;
-        const rows = results[0].values.map(row => {
-            const obj = {};
-            columns.forEach((col, i) => { obj[col] = row[i]; });
-            return obj;
-        });
-
-        res.json(rows);
+        // Turso returns rows as an array of objects
+        res.json(result.rows);
     } catch (err) {
         console.error('Error fetching feedback:', err);
         res.status(500).json({ error: 'Failed to retrieve feedback.' });
@@ -88,29 +77,26 @@ router.get('/', requireAdmin, (req, res) => {
 // ──────────────────────────────────────────────
 // GET /api/feedback/stats  — Dashboard stats (admin only)
 // ──────────────────────────────────────────────
-router.get('/stats', requireAdmin, (req, res) => {
+router.get('/stats', requireAdmin, async (req, res) => {
     try {
         const db = getDB();
 
-        const totalResult = db.exec('SELECT COUNT(*) as total FROM feedback');
-        const total = totalResult.length > 0 ? totalResult[0].values[0][0] : 0;
+        const totalResult = await db.execute('SELECT COUNT(*) as total FROM feedback');
+        const total = totalResult.rows[0].total;
 
-        const avgResult = db.exec('SELECT AVG(rating) as avg_rating FROM feedback');
-        const avgRating = avgResult.length > 0 && avgResult[0].values[0][0] !== null
-            ? parseFloat(avgResult[0].values[0][0]).toFixed(1)
-            : '0.0';
+        const avgResult = await db.execute('SELECT AVG(rating) as avg_rating FROM feedback');
+        const avgRaw = avgResult.rows[0].avg_rating;
+        const avgRating = avgRaw !== null ? parseFloat(avgRaw).toFixed(1) : '0.0';
 
-        const todayResult = db.exec(
+        const todayResult = await db.execute(
             `SELECT COUNT(*) as today FROM feedback WHERE date(created_at) = date('now', 'localtime')`
         );
-        const today = todayResult.length > 0 ? todayResult[0].values[0][0] : 0;
+        const today = todayResult.rows[0].today;
 
-        const ratingResult = db.exec(
+        const ratingResult = await db.execute(
             `SELECT rating, COUNT(*) as count FROM feedback GROUP BY rating ORDER BY rating`
         );
-        const ratings = ratingResult.length > 0
-            ? ratingResult[0].values.map(row => ({ rating: row[0], count: row[1] }))
-            : [];
+        const ratings = ratingResult.rows.map(row => ({ rating: row.rating, count: row.count }));
 
         res.json({ total, avgRating, today, ratings });
     } catch (err) {
@@ -125,7 +111,7 @@ router.get('/stats', requireAdmin, (req, res) => {
 router.get('/export/excel', requireAdmin, async (req, res) => {
     try {
         const db = getDB();
-        const results = db.exec('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
+        const result = await db.execute('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
 
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'BGL Feedback System';
@@ -159,21 +145,16 @@ router.get('/export/excel', requireAdmin, async (req, res) => {
         headerRow.height = 30;
 
         // Add data rows
-        if (results.length > 0) {
-            const columns = results[0].columns;
-            results[0].values.forEach((row, idx) => {
-                const obj = {};
-                columns.forEach((col, i) => { obj[col] = row[i]; });
-                const dataRow = sheet.addRow(obj);
-                dataRow.alignment = { vertical: 'middle', wrapText: true };
-                if (idx % 2 === 0) {
-                    dataRow.fill = {
-                        type: 'pattern', pattern: 'solid',
-                        fgColor: { argb: 'F5F5FF' }
-                    };
-                }
-            });
-        }
+        result.rows.forEach((row, idx) => {
+            const dataRow = sheet.addRow(row);
+            dataRow.alignment = { vertical: 'middle', wrapText: true };
+            if (idx % 2 === 0) {
+                dataRow.fill = {
+                    type: 'pattern', pattern: 'solid',
+                    fgColor: { argb: 'F5F5FF' }
+                };
+            }
+        });
 
         // Add borders
         sheet.eachRow((row) => {
@@ -201,10 +182,10 @@ router.get('/export/excel', requireAdmin, async (req, res) => {
 // ──────────────────────────────────────────────
 // GET /api/feedback/export/pdf  — Download PDF (admin only)
 // ──────────────────────────────────────────────
-router.get('/export/pdf', requireAdmin, (req, res) => {
+router.get('/export/pdf', requireAdmin, async (req, res) => {
     try {
         const db = getDB();
-        const results = db.exec('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
+        const result = await db.execute('SELECT id, name, email, phone, category, organisation, rating, message, created_at FROM feedback ORDER BY created_at DESC');
 
         const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
 
@@ -218,15 +199,15 @@ router.get('/export/pdf', requireAdmin, (req, res) => {
         doc.fontSize(10).fillColor('#888').text(`Generated on: ${new Date().toLocaleString()}`, { align: 'center' });
         doc.moveDown(1);
 
-        if (results.length === 0 || results[0].values.length === 0) {
+        if (result.rows.length === 0) {
             doc.fontSize(14).fillColor('#333').text('No feedback entries found.', { align: 'center' });
             doc.end();
             return;
         }
 
-        const rows = results[0].values;
+        const rows = result.rows;
 
-        // Table configuration — 7 columns (no category)
+        // Table configuration
         const colWidths = [30, 75, 100, 70, 70, 90, 35, 180, 85];
         const headers = ['ID', 'Name', 'Email', 'Phone', 'Category', 'Organisation', 'Rating', 'Message', 'Date'];
         const startX = 40;
@@ -248,7 +229,7 @@ router.get('/export/pdf', requireAdmin, (req, res) => {
 
         // Draw data rows
         doc.fontSize(8).fillColor('#333');
-        rows.forEach((row, rowIdx) => {
+        rows.forEach((rowObj, rowIdx) => {
             if (y > doc.page.height - 60) {
                 doc.addPage();
                 y = 40;
@@ -259,7 +240,15 @@ router.get('/export/pdf', requireAdmin, (req, res) => {
 
             const bgColor = rowIdx % 2 === 0 ? '#F8F8FF' : '#FFFFFF';
             let x = startX;
-            row.forEach((cell, i) => {
+
+            // Map object to array to match headers
+            const rowValues = [
+                rowObj.id, rowObj.name, rowObj.email, rowObj.phone,
+                rowObj.category, rowObj.organisation, rowObj.rating,
+                rowObj.message, rowObj.created_at
+            ];
+
+            rowValues.forEach((cell, i) => {
                 doc.rect(x, y, colWidths[i], 22).fill(bgColor);
                 doc.fillColor('#333').text(
                     String(cell || ''),

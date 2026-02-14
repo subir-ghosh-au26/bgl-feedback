@@ -1,70 +1,55 @@
-const initSqlJs = require('sql.js');
-const path = require('path');
-const fs = require('fs');
-
-const DB_PATH = path.join(__dirname, '..', 'data', 'feedback.db');
+const { createClient } = require('@libsql/client');
 
 let db = null;
 
 /**
- * Initialize the SQLite database (sql.js — pure JS, no native deps).
- * Loads existing DB file if present, otherwise creates a new one.
+ * Initialize the Turso (libSQL) database connection.
+ * Uses environment variables for URL and Auth Token.
  */
 async function initDB() {
-    const SQL = await initSqlJs();
+    const url = process.env.TURSO_DATABASE_URL;
+    const authToken = process.env.TURSO_AUTH_TOKEN;
 
-    // Ensure data directory exists
-    const dataDir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
+    if (!url) {
+        console.warn('⚠️ TURSO_DATABASE_URL is not set. Falling back to local SQLite file for development.');
     }
 
-    // Load existing database or create a new one
-    if (fs.existsSync(DB_PATH)) {
-        const fileBuffer = fs.readFileSync(DB_PATH);
-        db = new SQL.Database(fileBuffer);
-    } else {
-        db = new SQL.Database();
-    }
+    // Connect to Turso (or local file if URL is missing)
+    db = createClient({
+        url: url || 'file:data/feedback.db',
+        authToken: authToken
+    });
 
-    // Create feedback table
-    db.run(`
-    CREATE TABLE IF NOT EXISTS feedback (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      email TEXT DEFAULT '',
-      phone TEXT DEFAULT '',
-      category TEXT DEFAULT '',
-      organisation TEXT DEFAULT '',
-      rating INTEGER NOT NULL,
-      message TEXT NOT NULL,
-      created_at DATETIME DEFAULT (datetime('now', 'localtime'))
-    )
-  `);
+    // Create feedback table if it doesn't exist
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT DEFAULT '',
+            phone TEXT DEFAULT '',
+            category TEXT DEFAULT '',
+            organisation TEXT DEFAULT '',
+            rating INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            created_at DATETIME DEFAULT (datetime('now', 'localtime'))
+        )
+    `);
 
-    saveDB();
-    console.log('✅ Database initialized');
+    console.log('✅ Database connection initialized');
     return db;
-}
-
-/** Persist the in-memory database to disk */
-function saveDB() {
-    if (db) {
-        try {
-            console.log(`💾 Attempting to save database to: ${DB_PATH}`);
-            const data = db.export();
-            const buffer = Buffer.from(data);
-            fs.writeFileSync(DB_PATH, buffer);
-            console.log('✅ Database saved successfully');
-        } catch (err) {
-            console.error('❌ Failed to save database:', err);
-        }
-    }
 }
 
 /** Get the current database instance */
 function getDB() {
+    if (!db) {
+        throw new Error('Database not initialized. Call initDB() first.');
+    }
     return db;
+}
+
+// saveDB is no longer needed as Turso auto-persists changes to the cloud
+function saveDB() {
+    // No-op for cloud database
 }
 
 module.exports = { initDB, getDB, saveDB };
