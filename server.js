@@ -77,6 +77,9 @@ app.use('/api/feedback', (req, res, next) => {
     next();
 });
 
+// ── Clean URL redirects ─────────────────────────
+app.get('/admin', (req, res) => res.redirect('/admin.html'));
+
 // ── Routes ──────────────────────────────────────
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/admin', require('./routes/admin'));
