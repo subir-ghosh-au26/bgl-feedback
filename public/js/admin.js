@@ -50,13 +50,14 @@ async function loadDashboard() {
 async function loadStats() {
     try {
         const res = await fetch('/api/feedback/stats');
-        const stats = await res.json();
 
+        if (res.status === 401) return handleUnauthorized();
+        if (!res.ok) throw new Error('Failed to load stats');
+
+        const stats = await res.json();
         document.getElementById('statTotal').textContent = stats.total || 0;
         document.getElementById('statAvg').textContent = stats.avgRating || '0.0';
         document.getElementById('statToday').textContent = stats.today || 0;
-
-
     } catch (err) {
         console.error('Failed to load stats:', err);
     }
@@ -65,11 +66,26 @@ async function loadStats() {
 async function loadFeedback() {
     try {
         const res = await fetch('/api/feedback');
+
+        if (res.status === 401) return handleUnauthorized();
+        if (!res.ok) throw new Error('Failed to load feedback');
+
         allFeedback = await res.json();
-        renderTable(allFeedback);
+        if (Array.isArray(allFeedback)) {
+            renderTable(allFeedback);
+        } else {
+            console.error('Feedback data is not an array:', allFeedback);
+            renderTable([]);
+        }
     } catch (err) {
         console.error('Failed to load feedback:', err);
     }
+}
+
+function handleUnauthorized() {
+    document.getElementById('dashboard').classList.remove('active');
+    document.getElementById('loginScreen').style.display = 'flex';
+    showAdminToast('Session expired. Please log in again.', 'error');
 }
 
 // ── Render Table ───────────────────────────────
@@ -151,8 +167,10 @@ function downloadPDF() {
 async function showQRModal() {
     try {
         const res = await fetch('/api/admin/qrcode');
-        const data = await res.json();
+        if (res.status === 401) return handleUnauthorized();
+        if (!res.ok) throw new Error('Failed to load QR');
 
+        const data = await res.json();
         // Inject raw SVG into container to bypass data-uri image security restrictions
         document.getElementById('qrImageContainer').innerHTML = data.qrCode;
         document.getElementById('qrModal').classList.add('active');
