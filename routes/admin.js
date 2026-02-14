@@ -13,7 +13,13 @@ router.post('/login', (req, res) => {
 
     if (username === validUser && password === validPass) {
         req.session.isAdmin = true;
-        return res.json({ success: true, message: 'Login successful' });
+        return req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.status(500).json({ error: 'Login failed to persist session' });
+            }
+            res.json({ success: true, message: 'Login successful' });
+        });
     }
 
     res.status(401).json({ error: 'Invalid credentials' });
